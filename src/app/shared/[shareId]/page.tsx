@@ -9,31 +9,51 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Countdown } from "@/components/countdown";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface CountdownData {
+  share_id: string;
+  name: string;
+  target_date: string;
+  end_message: string;
+  expires_at: string;
+}
+
 export default function SharedCountdownPage() {
   const params = useParams();
+  const shareId = params?.shareId as string;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [targetDate, setTargetDate] = useState<Date | null>(null);
-  const [name, setName] = useState<string>("");
-  const [endMessage, setEndMessage] = useState<string>("");
+  const [countdownData, setCountdownData] = useState<CountdownData | null>(
+    null
+  );
   const [isEnded, setIsEnded] = useState(false);
 
   useEffect(() => {
     const loadSharedCountdown = async () => {
       if (!supabase) {
-        setError("Unable to load countdown data");
+        setError("Supabase client is not initialized");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!shareId) {
+        setError("No share ID provided");
         setIsLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase
+        console.log("Fetching countdown with share_id:", shareId);
+
+        const { data, error: supabaseError } = await supabase
           .from("countdowns")
-          .select("*")
-          .eq("share_id", params.shareId)
+          .select("share_id, name, target_date, end_message, expires_at")
+          .eq("share_id", shareId)
           .single();
 
-        if (error) throw error;
+        if (supabaseError) {
+          console.error("Supabase error:", supabaseError);
+          throw new Error(supabaseError.message);
+        }
 
         if (!data) {
           setError("Countdown not found");
@@ -41,28 +61,37 @@ export default function SharedCountdownPage() {
           return;
         }
 
+        console.log("Retrieved countdown data:", data);
+
+        // Ensure the data matches our interface
+        const typedData: CountdownData = {
+          share_id: data.share_id as string,
+          name: data.name as string,
+          target_date: data.target_date as string,
+          end_message: data.end_message as string,
+          expires_at: data.expires_at as string,
+        };
+
         // Check if countdown has expired
-        if (new Date(data.expires_at) < new Date()) {
+        if (new Date(typedData.expires_at) < new Date()) {
           setError("This countdown has expired");
           setIsLoading(false);
           return;
         }
 
-        setTargetDate(new Date(data.target_date));
-        setName(data.name);
-        setEndMessage(
-          data.end_message || `Woohoo! Countdown to ${data.name} has ended!`
-        );
-        setIsLoading(false);
+        setCountdownData(typedData);
       } catch (err) {
-        console.error("Error loading shared countdown:", err);
-        setError("Failed to load countdown data");
+        console.error("Detailed error:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load countdown data"
+        );
+      } finally {
         setIsLoading(false);
       }
     };
 
     loadSharedCountdown();
-  }, [params.shareId]);
+  }, [shareId]);
 
   if (isLoading) {
     return (
@@ -72,7 +101,7 @@ export default function SharedCountdownPage() {
     );
   }
 
-  if (error || !targetDate || !name) {
+  if (error || !countdownData) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center space-y-4">
         <div className="text-xl text-red-500">
@@ -117,11 +146,13 @@ export default function SharedCountdownPage() {
               className="w-full h-full flex flex-col items-center justify-center"
               exit={{ opacity: 0, transition: { duration: 0.5 } }}
             >
-              <h1 className="text-4xl font-bold mb-8">Countdown to {name}</h1>
+              <h1 className="text-4xl font-bold mb-8">
+                Countdown to {countdownData.name}
+              </h1>
               <div className="w-4/5 h-4/5">
                 <Countdown
-                  targetDate={targetDate}
-                  name={name}
+                  targetDate={new Date(countdownData.target_date)}
+                  name={countdownData.name}
                   onEnd={() => setIsEnded(true)}
                 />
               </div>
@@ -134,7 +165,10 @@ export default function SharedCountdownPage() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ type: "spring", damping: 15, stiffness: 100 }}
             >
-              <h2 className="text-6xl font-bold mb-8">{endMessage}</h2>
+              <h2 className="text-6xl font-bold mb-8">
+                {countdownData.end_message ||
+                  `Woohoo! Countdown to ${countdownData.name} has ended!`}
+              </h2>
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
