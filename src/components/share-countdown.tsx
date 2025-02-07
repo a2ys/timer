@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import {
   Dialog,
@@ -28,13 +30,17 @@ export function ShareCountdown({
   const [isLoading, setIsLoading] = useState(false);
 
   const handleShare = async () => {
+    if (!supabase) {
+      console.error("Supabase client not initialized");
+      alert("Unable to share countdown at this time. Please try again later.");
+      return;
+    }
+
     try {
       setIsLoading(true);
 
-      // Generate a random share ID
       const shareId = Math.random().toString(36).substr(2, 9);
 
-      // Insert the countdown data into Supabase
       const { error } = await supabase
         .from("countdowns")
         .insert([
@@ -43,6 +49,10 @@ export function ShareCountdown({
             name,
             target_date: targetDate.toISOString(),
             end_message: endMessage,
+            // Set expiration date to 30 days from now
+            expires_at: new Date(
+              Date.now() + 30 * 24 * 60 * 60 * 1000
+            ).toISOString(),
           },
         ])
         .select()
@@ -50,7 +60,6 @@ export function ShareCountdown({
 
       if (error) throw error;
 
-      // Create the share link
       const newShareLink = `${window.location.origin}/shared/${shareId}`;
       setShareLink(newShareLink);
     } catch (error) {
@@ -70,7 +79,12 @@ export function ShareCountdown({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="icon" onClick={handleShare}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleShare}
+          disabled={isLoading}
+        >
           <Share2 className="h-4 w-4" />
         </Button>
       </DialogTrigger>
@@ -83,7 +97,7 @@ export function ShareCountdown({
         </DialogHeader>
         <div className="flex items-center space-x-2">
           <Input value={shareLink} readOnly />
-          <Button onClick={handleCopyLink} disabled={isLoading}>
+          <Button onClick={handleCopyLink} disabled={!shareLink}>
             {isCopied ? "Copied!" : "Copy"}
           </Button>
         </div>

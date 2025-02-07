@@ -17,6 +17,8 @@ export default function CountdownPage() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const storedDate = localStorage.getItem("countdownTarget");
     const storedName = localStorage.getItem("countdownName");
     const storedEndMessage = localStorage.getItem("countdownEndMessage");
