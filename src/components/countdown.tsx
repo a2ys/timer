@@ -9,7 +9,6 @@ function padNumber(num: number): string {
 
 export function Countdown({
   targetDate,
-  name,
   onEnd,
 }: {
   targetDate: Date;

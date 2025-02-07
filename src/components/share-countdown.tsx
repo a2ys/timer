@@ -35,7 +35,7 @@ export function ShareCountdown({
       const shareId = Math.random().toString(36).substr(2, 9);
 
       // Insert the countdown data into Supabase
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("countdowns")
         .insert([
           {
